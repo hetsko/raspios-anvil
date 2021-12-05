@@ -1,16 +1,17 @@
-# Over-the-air RaspiOS
-Also known as *stay-in-chair* RaspiOS, a simple commandline/python
-utility that is here to help you configure
+# raspios-ota
+Over-the-air RaspiOS, also known as *stay-in-chair* RaspiOS, is a
+commandline/python utility that is here to help you configure
 [Raspberry Pi OS](https://www.raspberrypi.com/software/operating-systems/#raspberry-pi-os-32-bit)
-images for a network-ready (**ssh-ready**) **first boot** so
-that there is no need to go looking for a spare keyboard and screen.
+images for a network-ready (**ssh-ready**) **first boot**. So
+that there is no need to go looking for a spare keyboard and screen or creating
+the "ssh" and "wpa_supplicant.conf" files by hand.
 Simply burn the customized image to a microSD, power up the Pi and connect
 via ssh straightaway. Requires `python>=3.7`.
 
 Main features:
 - enable SSH by default and...
-- ...pre-set a unique and secure password for the default user (instead of `raspberry`)
-- pre-configure WiFi credentials for wireless Pi-s
+- ...set a unique and secure password for the default user (instead of `raspberry`)
+- configure WiFi credentials for a wireless Pi
 
 To create the image, download an image of your choice from
 [here](https://downloads.raspberrypi.org/raspios_lite_armhf/images/),
@@ -18,7 +19,7 @@ unzip the archive and run the script.
 ```bash
 unzip 2021-10-30-raspios-bullseye-armhf-lite.zip
 mv 2021-10-30-raspios-bullseye-armhf-lite.img my_img.img
-raspios_ota.py my_img.img  # Modifies the image in place
+sudo raspios_ota.py my_img.img  # Modifies the image in place
 ```
 The script is interactive and prompts you for the relevant info (new password,
 WiFi credentials). The image is then ready to be installed on a microSD card
@@ -28,10 +29,12 @@ with an imaging tool of your choice
 same as the original Raspberry Pi OS images.
 
 
-## Advanced features: Over-the-air OS reinstall
+## Advanced features: Remote OS upgrade
 Be adventurous (from the comforts of your chair) and
 conduct reliable **over-the-air OS upgrades** assited by an NFS server, which
 can be hosted by a second Pi or any other linux machine in the same network.
+All credit for the original idea to this
+[stackexchange post](https://raspberrypi.stackexchange.com/questions/628/).
 The procedure has two main steps:
 1. Configure the Pi to boot into a root file system hosted on the NFS server,
   thus releasing the SD card.
@@ -42,7 +45,7 @@ Refer to ??? for a more detailed tutorial.
 
 > *Reliable?* Well, a network-based approach always comes with certain
 > risks which cannot be completely mitigated (connection loss, network security).
-> Apart from that, the procedure itself is in theory quite sound and
+> Apart from that, the procedure itself is quite sound in theory as it
 > completly avoids dubious methods such as a live linux system attempting to
 > overwrite its root file system.
 

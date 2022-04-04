@@ -1,17 +1,23 @@
-# raspios-ota
-Over-the-air RaspiOS, also known as *stay-in-chair* RaspiOS, is a
-commandline/python utility that is here to help you configure
-[Raspberry Pi OS](https://www.raspberrypi.com/software/operating-systems/#raspberry-pi-os-32-bit)
-images for a network-ready (**ssh-ready**) **first boot**. So
-that there is no need to go looking for a spare keyboard and screen or creating
-the "ssh" and "wpa_supplicant.conf" files by hand.
-Simply burn the customized image to a microSD, power up the Pi and connect
-via ssh straightaway. Requires `python>=3.7`.
+# raspios-anvil
 
-Main features:
+RaspiOS anvil is here to unofficially help you bend the official
+[Raspberry Pi OS images 32bit/64bit](https://www.raspberrypi.com/software/operating-systems/) to your will.
+
+More specifically, it is a commandline/python
+utility that can for example configure the image for a network-ready
+(**ssh-ready**) first boot, which is very useful if you use your Pi headless.
+No need to go looking for a spare keyboard+screen just for the first boot.
+While this in itself can be achieved e.g. simply by copying the "ssh" and "wpa_supplicant.conf" files to "/boot" by hand after burning the image
+(google: headless raspberrypi boot), there are many additional features and
+applications to this tool may also come in handy.
+
+Targets `python>=3.7`. Main features:
+
+- prepare a customized RaspiOS image (and write it to SD card now or anytime later)
 - enable SSH by default and...
 - ...set a unique and secure password for the default user (instead of `raspberry`)
 - configure WiFi credentials for a wireless Pi
+- add or modify additional configs or data
 
 To create the image, download an image of your choice from
 [here](https://downloads.raspberrypi.org/raspios_lite_armhf/images/),
@@ -19,8 +25,11 @@ unzip the archive and run the script.
 ```bash
 unzip 2021-10-30-raspios-bullseye-armhf-lite.zip
 mv 2021-10-30-raspios-bullseye-armhf-lite.img my_img.img
-sudo raspios_ota.py my_img.img  # Modifies the image in place
+sudo python -m raspios_ota my_img.img  # Modifies the image in place
 ```
+> Root privilege is required to **mount** partitions from the image and modify the
+> files inside.
+
 The script is interactive and prompts you for the relevant info (new password,
 WiFi credentials). The image is then ready to be installed on a microSD card
 with an imaging tool of your choice
@@ -28,34 +37,17 @@ with an imaging tool of your choice
 [Rufus](https://rufus.ie/), `dd` command)
 same as the original Raspberry Pi OS images.
 
+## Experimental features/ideas: Remote OS upgrade
 
-## Advanced features: Remote OS upgrade
-Be adventurous (from the comforts of your chair) and
-conduct reliable **over-the-air OS upgrades** assited by an NFS server, which
-can be hosted by a second Pi or any other linux machine in the same network.
-All credit for the original idea to this
-[stackexchange post](https://raspberrypi.stackexchange.com/questions/628/).
-The procedure has two main steps:
-1. Configure the Pi to boot into a root file system hosted on the NFS server,
-  thus releasing the SD card.
-2. Since the SD card does not host the file system anymore, it can be safely
-  unmounted and a new OS image can be installed. Finally, the Pi is rebooted.
+The images created with this procedure need to be burned manually to the SD
+card and then insert the card back to the Pi. Often removing the card is not
+so straightforward e.g. when the Pi is well hidden in a box somewhere which
+needs to be disassembled. This is ok for "install once, do not bother further"
+approach, but may become a nuisance in case of the need to update to a new
+RaspiOS version, migrating to 64bit, or trying out a completely different OS.
 
-Refer to ??? for a more detailed tutorial.
-
-> *Reliable?* Well, a network-based approach always comes with certain
-> risks which cannot be completely mitigated (connection loss, network security).
-> Apart from that, the procedure itself is quite sound in theory as it
-> completly avoids dubious methods such as a live linux system attempting to
-> overwrite its root file system.
-
-**Q:** This idea sounds a bit overcomplicated.
-- *Not really, it mostly comes down to creating the pre-configured images
-  using this utility, running a few commands and twice rebooting the Pi.*
-
-**Q:** But what good does this thing bring to the world?
-- Use case 1: *Physically manupulating with the Pi and removing the SD card
-  is not a reasonable option due to its remote/inaccessible location.*
-- Use case 2: *Upgrading multiple Pi machines one-by-one can become a tedious
-  task. This is represents an opportunity for automatization.*
-- Use case 3: *It sounds fun.*
+Alternative options utilizing a boot from
+USB drive, NFS server or a second OS partition can be exploited to sidestep
+these mechanical hurdles. A reliable guide/utility for these procedures, which
+may lead even to a completely remote OS re-install, is the next step for this
+project.

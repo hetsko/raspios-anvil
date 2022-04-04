@@ -1,0 +1,12 @@
+version: '3'
+services:
+  main:
+    image: raspios-ota
+    build: .
+
+  dev:
+    image: raspios-ota
+    build: .
+    entrypoint: bash
+    volumes:
+      - ./raspios_ota:/opt/raspios_ota:ro

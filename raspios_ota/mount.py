@@ -21,7 +21,7 @@ def mount_partition(image, n, mount_point='/mnt'):
     """
     res = re.search(
         r'Units: sectors of [*\d\s]+ = (\d+) bytes',
-        commands.fdisk('-l', '-o', 'Start', str(image)),
+        commands.fdisk('-l', str(image)),
     )
     sector_size = int(res[1]) if res else 512
 

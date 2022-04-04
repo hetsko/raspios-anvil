@@ -4,8 +4,6 @@ from pathlib import Path
 import re
 import os
 
-from click import command
-
 from .prepare import prepare_image, copy_boot_for_nfs, copy_root
 from .mount import mount_partition
 from ._commands import ExternalCommands
@@ -59,7 +57,7 @@ def _prompt_compress(image, keep_unzipped=None):
 
 
 parser = argparse.ArgumentParser(description=(
-    'Prepare a custom RaspiOS image by modifying the original one in-place.'
+    'Prepare a custom RaspiOS image by modifying the original one IN-PLACE.'
     ' You can look for original images here:'
     ' https://downloads.raspberrypi.org/raspios_lite_armhf/images/'
     ' Run the script again with the --nfs option to create copies of boot and'

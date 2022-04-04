@@ -4,17 +4,23 @@ import shutil
 
 
 def run_and_capture(*args):
-    return subprocess.run(
-        args,
+    result = subprocess.run(
+        list(args),
         capture_output=True,
         text=True,
-        check=True,
-    ).stdout
+    )
+    try:
+        result.check_returncode()
+    except subprocess.CalledProcessError as e:
+        print(e.stderr)
+        raise
+    else:
+        return result.stdout
 
 
 def run_without_capture(*args):
     return subprocess.run(
-        args,
+        list(args),
         check=True,
     )
 
@@ -24,9 +30,9 @@ class ExternalCommands:
         self._commands = commands
         for cmd in self._commands:
             if capture_output:
-                setattr(self, cmd, functools(run_and_capture, cmd))
+                setattr(self, cmd, functools.partial(run_and_capture, cmd))
             else:
-                setattr(self, cmd, functools(run_without_capture, cmd))
+                setattr(self, cmd, functools.partial(run_without_capture, cmd))
         if check_available:
             self._check_available()
 

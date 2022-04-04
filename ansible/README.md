@@ -3,8 +3,10 @@
 [Ansible](https://docs.ansible.com/ansible/latest/) is an IT automation tool.
 It is used to (remotely) configure systems, deploy applications.
 It is a more convenient, more manageable and standardized alternative
-to writing plain shell scripts. The tasks are described in YAML files and
-Ansible executes python code in the background.
+to writing plain shell scripts. It also prints a nice colorful overview of tasks
+that were executed during the run, whether any failed, etc.
+The tasks are described in YAML files and Ansible implements
+them in python under the hood.
 
 In this case, it is used:
 
@@ -62,7 +64,7 @@ ansible-playbook img/image_ssh.yml -e img_src=/opt/images/raspios.img
 
 Feel free to inspect the playbooks files (*.yml) to gain some information
 on how to use them. They are by definition quite human-readable
-and self-explanatory. Usually, there is a section with predefined input variables,
+and self-documenting. Usually, there is a section with predefined **input variables**,
 
 ```yaml
 vars:
@@ -70,13 +72,25 @@ vars:
     ...
 ```
 
-which can be modified either directly in the file, or on runtime with the
+which can be modified either directly in the file, or on runtime with
+a command line option
 
 ```
 ... -e myvar='something'
 ```
 
-option (see below).
+or by passing a simple YAML file with values.
+
+```
+... -e @values.yml
+```
+
+```yaml
+# Contents of "values.yml"
+myvar: something
+myothervar: something else
+```
+
 
 ## Examples
 
@@ -92,15 +106,34 @@ otherwise the process may get a bit slow.
 
     > Default output (same dir): "/opt/images/image_ssh.img"
 
-- Create a SSH-ready image with WiFi configuration
+    To specify a custom output path use `-e img_dest=...`
 
         ansible-playbook img/image_ssh.yml -e img_src=/opt/images/raspios.img \
-            -e wifi_contrycode='GB' -e img_dest=/opt/images/image_wifi.img
+             -e img_dest=/opt/images/image_wifi.img
 
-    > Custom output path using `-e img_dest=...`
+- Create a SSH-ready image and change the default password for user pi
+
+        ansible-playbook img/image_ssh.yml -e img_src=/opt/images/raspios.img -e @passwd.yml
+
+    ```yaml
+    # Contents of "passwd.yml". Sensitive data - delete when finished!
+    pi_password: myPassw0rd
+    ```
+
+- Create a SSH-ready image with WiFi configuration
+
+        ansible-playbook img/image_ssh.yml -e img_src=/opt/images/raspios.img -e @wifi.yml
+
+    ```yaml
+    # Contents of "wifi.yml". Sensitive data - delete when finished!
+    wifi_countrycode: GB
+    wifi_ssid: MyNetwork
+    wifi_psk: VerySecretPassw0rd
+    ```
+
 
     Make sure to specify your correct [2-letter country code](https://en.wikipedia.org/wiki/List_of_ISO_3166_country_codes) (different countries use
-    different WiFi bands). The playbook will prompt you for the SSID and passphrase.
+    different WiFi bands).
 
 - Create an image with two /root partitions (two OS installations)
 

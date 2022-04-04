@@ -10,24 +10,26 @@
     # Output image
     img_dest: '{{ (img_src | dirname, "image_ssh.img") | path_join }}'
 
-    # A country code is required for correct WiFi configuration
-    wifi_contrycode: 'CZ'
+    # (Optional) New password for the pi user
+    pi_passwd:
 
-    # a) Specify WiFi network name and passphrase (will override c) )
+    # (Optional) Configure WiFi credentials
+    #   A country code is required for correct WiFi configuration
+    wifi_contrycode: 'CZ'
+    #   a) Specify WiFi network name and passphrase (leave empty to skip WiFi)
     wifi_ssid: ''
     wifi_psk: ''
-    # b) Specify custom wpa_supplicant.conf (will override a) and c) )
+    #   b) Specify custom wpa_supplicant.conf (leave empty to skip WiFi)
     wpa_supp_conf: ''
-
-    # c) Interactive prompts (the default):
-  vars_prompt:
-    - name: wifi_ssid
-      prompt: wifi network ssid (empty to skip)
-      private: no
-    - name: wifi_psk
-      prompt: wifi passphrase (empty to skip)
-      confirm: yes
-      private: yes
+    #   c) Interactive prompts:
+  # vars_prompt:
+  #   - name: wifi_ssid
+  #     prompt: wifi network ssid (empty to skip)
+  #     private: no
+  #   - name: wifi_psk
+  #     prompt: wifi passphrase (empty to skip)
+  #     confirm: yes
+  #     private: yes
 
   tasks:
     - name: 'Ensure source image is specified "-e img_src=..."'
@@ -77,6 +79,7 @@
       ansible.builtin.tempfile:
         state: directory
       register: mounts
+
     - name: Configure the /boot partiton in the image
       block:
         - name: 'Mount /boot from image {{ img_dest }}'
@@ -99,7 +102,30 @@
             mode: 0600
           when: wpa_supplicant is defined
       always:
-        - name: 'Unmount /boot'
+        - name: Unmount /boot
+          ansible.posix.mount:
+            path: '{{ mounts.path }}'
+            state: absent
+      become: yes
+
+    - name: Configure the /root partiton in the image
+      block:
+        - name: 'Mount /root from image {{ img_dest }}'
+          ansible.posix.mount:
+            src: '{{ img_dest }}'
+            path: '{{ mounts.path }}'
+            fstype: ext4
+            opts: 'loop,offset={{ ptable.partitions[1].begin | int }}'
+            state: mounted
+        - name: Configure /root - set password for pi in /etc/shadow
+          ansible.builtin.lineinfile:
+            path: '{{ (mounts.path, "etc/shadow") | path_join }}'
+            regexp: '^(pi:)[^:]+(:.*)$'
+            line: '\1{{ lookup("pipe", "openssl passwd -6 " + (pi_passwd | quote)) }}\2'
+            backrefs: yes
+          when: pi_passwd | default(False)
+      always:
+        - name: Unmount /root
           ansible.posix.mount:
             path: '{{ mounts.path }}'
             state: absent

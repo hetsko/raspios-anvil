@@ -12,6 +12,9 @@ need to remove it from the Pi, just connect the USB drive. If using a
 
 ## Remote OS upgrade via NFS
 
+> NOTE: This works only with ethernet connection. Linux kernel does not support
+> network boot over WiFi.
+
 Be adventurous (from the comforts of your chair) and
 conduct reliable **over-the-air OS upgrades** assited by an NFS server, which
 can be hosted by a second Pi or any other linux machine in the same network.

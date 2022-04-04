@@ -1,7 +1,7 @@
 # Remote OS Upgrade
 
 ## Create the images
-We will require 3 images in total, all prepared using the `raspios_ota` script.
+We will require 3 images in total, all prepared using the `raspios_anvil` script.
 - the main (customized) image that will be installed on the SD card
 - a copy of the boot partition configured for NFS root file system
 - a copy of the root file system partition to be served by NFS
@@ -9,9 +9,9 @@ We will require 3 images in total, all prepared using the `raspios_ota` script.
 unzip 2021-10-30-raspios-bullseye-armhf-lite.zip
 mv 2021-10-30-raspios-bullseye-armhf-lite.img myimg.img
 # Configure and compress -> myimg.zip
-sudo raspios_ota.py myimg.img --zip --keep-unzipped
+sudo python3 -m raspios_anvil myimg.img --zip --keep-unzipped
 # Extract partitions for NFS -> myimg_nfsboot.zip, myimg_nfsroot.zip
-sudo raspios_ota.py --nfs myimg.img --zip
+sudo python3 -m raspios_anvil --nfs myimg.img --zip
 ```
 All of these images can be reused for multiple Pi machines, although it is
 advisable to set aside a clean copy of the "myimg_nfsroot.img", duplicate it

@@ -1,12 +1,12 @@
 version: '3'
 services:
   main:
-    image: raspios-ota
+    image: raspios-anvil
     build: .
 
   dev:
-    image: raspios-ota
+    image: raspios-anvil
     build: .
     entrypoint: bash
     volumes:
-      - ./raspios_ota:/opt/raspios_ota:ro
+      - ./raspios_anvil:/opt/raspios_anvil:ro

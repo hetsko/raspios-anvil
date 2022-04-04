@@ -27,7 +27,7 @@ unzip the archive and run the script.
 ```bash
 unzip 2021-10-30-raspios-bullseye-armhf-lite.zip
 mv 2021-10-30-raspios-bullseye-armhf-lite.img my_img.img
-sudo python -m raspios_ota my_img.img  # Modifies the image in place
+sudo python -m raspios_anvil my_img.img  # Modifies the image in place
 ```
 > Root privilege is required to **mount** partitions from the image and modify the
 > files inside.

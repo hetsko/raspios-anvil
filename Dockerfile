@@ -10,6 +10,6 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt
-COPY raspios_ota/ raspios_ota/
+COPY raspios_anvil/ raspios_anvil/
 
-ENTRYPOINT ["python", "-m", "raspios_ota"]
+ENTRYPOINT ["python", "-m", "raspios_anvil"]

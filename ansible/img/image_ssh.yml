@@ -1,0 +1,110 @@
+---
+- name: Make RaspiOS image that will boot into SSH-ready state on its own (headless)
+  # Required/optional linux packages: unzip, wpasupplicant
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+    # RaspiOS image - Source for the image
+    img_src: ''
+    # Output image
+    img_dest: '{{ (img_src | dirname, "image_ssh.img") | path_join }}'
+
+    # A country code is required for correct WiFi configuration
+    wifi_contrycode: 'CZ'
+
+    # a) Specify WiFi network name and passphrase (will override c) )
+    wifi_ssid: ''
+    wifi_psk: ''
+    # b) Specify custom wpa_supplicant.conf (will override a) and c) )
+    wpa_supp_conf: ''
+
+    # c) Interactive prompts (the default):
+  vars_prompt:
+    - name: wifi_ssid
+      prompt: wifi network ssid (empty to skip)
+      private: no
+    - name: wifi_psk
+      prompt: wifi passphrase (empty to skip)
+      confirm: yes
+      private: yes
+
+  tasks:
+    - name: 'Ensure source image is specified "-e img_src=..."'
+      debug: var=img_src
+      failed_when: not img_src
+
+    - name: Unzip the image (if *.zip)
+      ansible.builtin.unarchive:
+        remote_src: yes
+        src: '{{ img_src }}'
+        dest: '{{ img_dest | dirname }}'
+        mode: 0644
+        list_files: yes
+      when: (img_src | splitext | last) == '.zip'
+    - name: Point img_src to the unzipped image
+      ansible.builtin.set_fact:
+        img_src: '{{ (unzipped.dest, unzipped.files[0]) | path_join }}'
+      when: unzippped.dest is defined
+    - name: Copy the image
+      ansible.builtin.copy:
+        remote_src: yes
+        src: '{{ img_src }}'
+        dest: '{{ img_dest }}'
+        mode: 0644
+      when: img_src != img_dest
+    - name: Read paratition table of the image
+      community.general.parted: 'device={{ img_dest }} unit=B state=info'
+      register: ptable
+
+    - name: Prepare WiFi config file
+      ansible.builtin.set_fact:
+        wpa_supplicant: |
+          country={{ wifi_contrycode }}
+          update_config=1
+          ctrl_interface=/var/run/wpa_supplicant
+          {{
+            lookup('pipe', ('wpa_passphrase', wifi_ssid | quote, wifi_psk | quote) | join(' '))
+            | regex_replace("#.*", "scan_ssid=1")
+          }}
+      when: (wifi_ssid | default(False)) and (wifi_psk | default(False))
+    - name: 'Read WiFi config file {{ wpa_supp_conf }}'
+      ansible.builtin.set_fact:
+        wpa_supplicant: "{{ lookup('file', wpa_supp_conf) }}\n"
+      when: wpa_supp_conf
+
+    - name: Create a temporary mountpoint
+      ansible.builtin.tempfile:
+        state: directory
+      register: mounts
+    - name: Configure the /boot partiton in the image
+      block:
+        - name: 'Mount /boot from image {{ img_dest }}'
+          ansible.posix.mount:
+            src: '{{ img_dest }}'
+            path: '{{ mounts.path }}'
+            fstype: vfat
+            opts: 'loop,offset={{ ptable.partitions[0].begin | int }}'
+            state: mounted
+        - name: Configure /boot - enable SSH
+          ansible.builtin.file:
+            path: '{{ (mounts.path, "ssh") | path_join }}'
+            state: touch
+            modification_time: preserve
+            mode: 0600
+        - name: Configure /boot - set WiFi credentials
+          ansible.builtin.copy:
+            dest: '{{ (mounts.path, "wpa_supplicant.conf") | path_join }}'
+            content: '{{ wpa_supplicant }}'
+            mode: 0600
+          when: wpa_supplicant is defined
+      always:
+        - name: 'Unmount /boot'
+          ansible.posix.mount:
+            path: '{{ mounts.path }}'
+            state: absent
+      become: yes
+
+    - name: Print location of the output image
+      ansible.builtin.debug:
+        var: img_dest

@@ -1,0 +1,170 @@
+---
+- name: Make a RaspiOS image with two /root partitions for redundancy & OS self-install
+  # Required linux packages: parted
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+    # RaspiOS image - Primary source image (/boot and primary /root)
+    img_src: ''
+    # RaspiOS image - Source for the extra partition (secondary /root)
+    img_p2_src: '{{ img_src }}'
+    # Output image
+    img_dest: '{{ (img_src | dirname, "image_2os.img") | path_join }}'
+    # Free space dedicated to the secondary partition in MB
+    size_p2_free: 1024
+  tasks:
+    - name: 'Ensure source image is specified "-e img_src=..."'
+      debug: var=img_src
+      failed_when: not img_src
+    - name: 'Remove output image {{ img_dest }} if it exists'
+      ansible.builtin.file:
+        path: '{{ img_dest }}'
+        state: absent
+      when: img_src != img_dest
+
+    - name: Read the partition table of the primary image
+      community.general.parted: 'device={{ img_src }} unit=B state=info'
+      register: ptable_src
+    - name: Read the partition table of the secondary image
+      community.general.parted: 'device={{ img_p2_src }} unit=B state=info'
+      register: ptable_extra
+
+    - name: Calculate required offsets and sizes from the partition tables
+      ansible.builtin.set_fact:
+        part_boot: '{{ ptable_src.partitions[0] }}'
+        part_root: '{{ ptable_src.partitions[1] }}'
+        part_extra: '{{ ptable_extra.partitions[1] }}'
+
+    - name: 'Write partition table and /boot to the new image (src: {{ img_src }})'
+      ansible.builtin.shell: '
+        dd if={{ img_src }} bs=64K
+        count={{ (part_boot.end | int) + 1 }}
+        iflag=count_bytes
+        >> {{ img_dest }}
+        '
+      changed_when: yes
+    - name: 'Write the secondary /root to the new image (src: {{ img_p2_src }})'
+      ansible.builtin.shell: '
+        dd if={{ img_p2_src }} bs=64K
+        skip={{ part_extra.begin | int }}
+        count={{ part_extra.size | int }}
+        iflag=skip_bytes,count_bytes
+        >> {{ img_dest }}
+        '
+      changed_when: yes
+    - name: 'Pad the image with {{ size_p2_free }}MB of empty space'
+      ansible.builtin.command: 'truncate -s +{{ size_p2_free }}M {{ img_dest }}'
+      changed_when: yes
+    - name: Resize the existing 2nd partition
+      community.general.parted:
+        device: '{{ img_dest }}'
+        number: 2
+        part_start: '{{ part_boot.end + 1 }}B'
+        part_end: '100%'
+        resize: yes
+        state: present
+
+    - name: Read the partition table from the new image
+      community.general.parted: 'device={{ img_dest }} unit=B state=info'
+      register: ptable_final
+
+    - name: 'Write the primary /root to the new image (src: {{ img_src }})'
+      ansible.builtin.shell: '
+        dd if={{ img_src }} bs=64K
+        skip={{ part_root.begin | int }}
+        count={{ part_root.size | int }}
+        iflag=skip_bytes,count_bytes
+        >> {{ img_dest }}
+        '
+      changed_when: yes
+    - name: Create the 3rd partition
+      community.general.parted:
+        device: '{{ img_dest }}'
+        number: 3
+        part_start: '{{ ptable_final.partitions[1].end + 1 }}B'
+        part_end: '100%'
+        resize: yes
+        state: present
+
+    - name: Handle filesystem adjustments (loop device)
+      block:
+        - name: Create a loop device for partitions in the new image
+          ansible.builtin.command: 'losetup --show -fP {{ img_dest | quote }}'
+          changed_when: yes
+          register: losetup
+        - name: Check and expand filesystems in /root partitions
+          community.general.filesystem:
+            dev: '{{ losetup.stdout }}{{ item }}'
+            fstype: ext4
+            resizefs: yes
+          loop:
+            - p2
+            - p3
+          become: yes
+      always:
+        - name: Release the loop device
+          ansible.builtin.command: 'losetup -d {{ losetup.stdout | quote }}'
+          changed_when: yes
+
+    - name: Create a temporary mountpoint
+      ansible.builtin.tempfile:
+        state: directory
+      register: mount_point
+    - name: Handle image file modifications (mounted)
+      block:
+        - name: Mount all partitions from the new image
+          ansible.posix.mount:
+            src: '{{ img_dest }}'
+            path: '{{ (mount_point.path, item.name) | path_join }}'
+            fstype: '{{ item.fstype }}'
+            opts: 'loop,offset={{ ptable_final.partitions[item.idx].begin | int }}'
+            state: mounted
+          loop:
+            - {'idx': 0, 'fstype': 'vfat', 'name': 'boot'}
+            - {'idx': 1, 'fstype': 'ext4', 'name': 'root-p2'}
+            - {'idx': 2, 'fstype': 'ext4', 'name': 'root-p3'}
+          register: mounts
+          become: yes
+
+        - name: Configure /boot to target the primary /root partition
+          ansible.builtin.replace:
+            path: '{{ (mounts.results[0].name, "cmdline.txt") | path_join }}'
+            regexp: ' root=PARTUUID=([\w]+)-02'
+            replace: ' root=PARTUUID=\1-03'
+        - name: Fix /etc/fstab in the primary /root partition
+          ansible.builtin.replace:
+            path: '{{ (mounts.results[2].name, "etc/fstab") | path_join }}'
+            regexp: 'PARTUUID=([\w]+)-02'
+            replace: 'PARTUUID=\1-03'
+        - name: Add set_boot_to_pX.sh scripts to the secondary /root
+          ansible.builtin.copy:
+            path: '{{ (mounts.results[1].name, "home/pi/boot_to_p"+item+".sh") | path_join }}'
+            contents: |
+              #!/bin/bash
+              [ $EUID -ne 0 ] && echo "This script must be run as root." && exit 1
+              sed -i 's/\( root=PARTUUID=[a-zA-Z0-9]\+\)-0[0-9]/\1-0{{ item  }}/g /boot/cmdline.txt'
+              cat /boot/cmdline.txt
+            mode: 0700
+          loop: ['1', '2']
+        - name: Add set_boot_to_pX.sh scripts to the primary /root
+          ansible.builtin.copy:
+            path: '{{ (mounts.results[2].name, "home/pi/boot_to_p"+item+".sh") | path_join }}'
+            contents: |
+              #!/bin/bash
+              [ $EUID -ne 0 ] && echo "This script must be run as root." && exit 1
+              sed -i 's/\( root=PARTUUID=[a-zA-Z0-9]\+\)-0[0-9]/\1-0{{ item  }}/g /boot/cmdline.txt'
+              cat /boot/cmdline.txt
+            mode: 0700
+          loop: ['1', '2']
+      always:
+        - name: Unmount all partitions
+          ansible.posix.mount:
+            path: '{{ item }}'
+            state: absent
+          loop: '{{ mounts.results | map(attribute="name") }}'
+          become: yes
+
+    - name: Print location of the output image
+      ansible.builtin.debug:
+        var: img_dest

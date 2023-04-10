@@ -50,6 +50,7 @@ In this case, it is used:
     The tasks target a Debian-based system. Make sure that following linux
     packages are present: `parted`, `rsync`, `zip`, `unzip`.
 
+        apt install parted rsync zip unzip
 
 ## Usage
 

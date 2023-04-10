@@ -11,7 +11,7 @@ import re
 from ._commands import ExternalCommands
 
 
-commands = ExternalCommands(['fdisk', 'partx', 'mount', 'umount', 'losetup'])
+commands = ExternalCommands(['partx', 'mount', 'umount', 'losetup'])
 
 
 def mount_partition(image, n, mount_point='/mnt'):
@@ -19,15 +19,16 @@ def mount_partition(image, n, mount_point='/mnt'):
 
     Returns the mount point.
     """
-    res = re.search(
-        r'Units: sectors of [*\d\s]+ = (\d+) bytes',
-        commands.fdisk('-l', str(image)),
-    )
-    sector_size = int(res[1]) if res else 512
+    def int_lines(text):
+        return [int(s) for s in text.splitlines()]
+
+    sizes = int_lines(commands.partx('-bsgo', 'SIZE', str(image)))
+    sectors = int_lines(commands.partx('-sgo', 'SECTORS', str(image)))
+    sector_size = sizes[0] // sectors[0]
 
     offsets = [
-        int(s)*sector_size for s
-        in commands.partx('-sgo', 'START', str(image)).splitlines()
+        sector_size * sector_count for sector_count in
+        int_lines(commands.partx('-sgo', 'START', str(image)))
     ]
     commands.mount('-o', f'loop,offset={offsets[n]}', str(image), str(mount_point))
     return mount_point

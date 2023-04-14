@@ -71,13 +71,12 @@ parted $IMAGE_FILE mkpart primary $SIZE_PADDED"MiB" 100%
 
 echo ""
 echo "INFO: Check and expand the filesystems."
-LOOP=$(kpartx -l $IMAGE_FILE | tail -n 1 | sed 's|.*/dev/\(.*\)|\1|')
-kpartx -va $IMAGE_FILE
+LOOP=$(kpartx -va $IMAGE_FILE | tail -n 1 | sed 's/.*\(loop[0-9]\+\)p.*/\1/')
 e2fsck -y -f -v -C 0 /dev/mapper/${LOOP}p2 > /dev/null
 resize2fs -p /dev/mapper/${LOOP}p2 > /dev/null
 e2fsck -y -f -v -C 0 /dev/mapper/${LOOP}p3 > /dev/null
 resize2fs -p /dev/mapper/${LOOP}p3 > /dev/null
-kpartx -vd /dev/$LOOP
+kpartx -d /dev/$LOOP
 
 echo ""
 echo "INFO: Show partition table."

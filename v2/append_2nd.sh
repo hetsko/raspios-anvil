@@ -69,13 +69,23 @@ SIZE_PADDED=$(du --apparent-size -m $IMAGE_FILE | cut -f 1)
 dd if=$IMAGE_APPEND bs=1M skip=$START_APPEND count=$SIZE_APPEND status=progress >> $IMAGE_FILE
 parted $IMAGE_FILE mkpart primary $SIZE_PADDED"MiB" 100%
 
+# Init loop device
+LOOP=$(kpartx -va $IMAGE_FILE | tail -n 1 | sed 's/.*\(loop[0-9]\+\)p.*/\1/')
+
 echo ""
 echo "INFO: Check and expand the filesystems."
-LOOP=$(kpartx -va $IMAGE_FILE | tail -n 1 | sed 's/.*\(loop[0-9]\+\)p.*/\1/')
 e2fsck -y -f -v -C 0 /dev/mapper/${LOOP}p2 > /dev/null
 resize2fs -p /dev/mapper/${LOOP}p2 > /dev/null
 e2fsck -y -f -v -C 0 /dev/mapper/${LOOP}p3 > /dev/null
 resize2fs -p /dev/mapper/${LOOP}p3 > /dev/null
+
+echo "INFO: Ensure first boot targets the new partition (no. 3)."
+TEMPDIR=$(mktemp --directory)
+mount /dev/mapper/${LOOP}p1 $TEMPDIR
+sed -i 's/\(root=PARTUUID=[^-]\+\)-[0-9]\{2\}/\1-03/' $TEMPDIR/cmdline.txt
+umount $TEMPDIR && rm -r $TEMPDIR
+
+# Clear loop device
 kpartx -d /dev/$LOOP
 
 echo ""

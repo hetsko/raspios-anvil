@@ -82,3 +82,30 @@ Final touch: compress it.
 ```bash
 xz -v raspios-lite-lite.img
 ```
+
+## 3 First boot to a 2-partition system
+
+In its initial state, the 2-partition image will successfully boot.into the
+main system partition (no. 3) as if it was a normal image. However, during the
+process new disk id is generated, which breaks the secondary partition.
+
+Solve this by copying over updated `/etc/fstab` from the active partition
+and changing the partition number.
+
+```bash
+replace_part_num() {
+  sed -i 's/\(PARTUUID=[^-]\+\)-'$2'/\1-'$3'/' $1
+}
+
+mount /dev/mmcblk0p2 /mnt
+cp /etc/fstab /mnt/etc/fstab
+replace_part_num /mnt/etc/fstab "03" "02"
+umount /mnt
+```
+
+Additionally, this can be executed automatically using the custom `firstrun.sh` script.
+
+```bash
+cp firstrun.sh /mnt
+echo "systemd.run=/boot/firstrun.sh systemd.run_success_action=reboot systemd.unit=kernel-command-line.target" >> /mnt/cmdline.txt
+```

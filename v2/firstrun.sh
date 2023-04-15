@@ -49,7 +49,7 @@ else
   # resize2fs -p $PART_UUID_03
 
   # 2. Return to partition 03 and let firstrun.sh be deleted
-  replace_part_num /boot/cmdline.txt "03" "02"
+  replace_part_num /boot/cmdline.txt "02" "03"
 fi
 
 rm -f /boot/firstrun.sh

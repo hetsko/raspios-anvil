@@ -30,6 +30,8 @@ PART_UUID_03="$DISK_UUID-03"
 DISK_DEVICE="/dev/$(lsblk -ndo PKNAME /dev/disk/by-partuuid/$PART_UUID_03)"
 
 if [ "$(get_active_part_uuid)" == "$PART_UUID_03" ]; then
+  # Fix /etc/fstab on partition 03
+  replace_part_num $TEMPDIR/etc/fstab "02" "03"
   # Fix /etc/fstab on partition 02
   TEMPDIR=$(mktemp --directory)
   mount "PARTUUID=$PART_UUID_02" $TEMPDIR
